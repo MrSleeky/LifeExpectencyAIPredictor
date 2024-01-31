@@ -1,0 +1,40 @@
+import numpy
+import onnxruntime
+@app.route("/Run_inference_onnx_model/imagebytes", methods=['GET','POST'])
+def Run_inference_onnx_model():
+    image_data = request.data
+
+    # Decode the base64-encoded image data
+    image_bytes = base64.b64decode(image_data)
+
+    # Open the image using PIL
+    image = Image.open(io.BytesIO(image_bytes))
+
+    if image.size != (224, 224):
+        image = image.resize((224, 224))
+
+    # Convert the image to a NumPy array with the specified dimensions and data type
+    input_data = numpy.array(image).transpose(2, 0, 1)  # Reshape to (3, 224, 224)
+    input_data = numpy.expand_dims(input_data, axis=0)  # Add a batch dimension (1, 3, 224, 224)
+    input_data = input_data.astype(numpy.float32)  # Ensure float32 data type
+
+    classes = ['accessControlSystem', 'announcementBoard', 'bag', 'bin', 'book', 'bookShelf', 'building', 'camera',
+               'car', 'centralHeating', 'chair', 'computer', 'cooler', 'door', 'electricSwitch', 'elevator', 'fan',
+               'fireAlarm', 'fireExtinguiser', 'foodPlace', 'grass', 'locker', 'networkSwitch', 'sign', 'sofa', 'stair',
+               'table', 'tree', 'wc', 'whiteBoard', 'window']
+
+    model_path = r"C:\Users\Administrator\Downloads\GoogleNet32001.onnx"
+    session = onnxruntime.InferenceSession(model_path)
+
+    # Get input and output names
+    input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
+
+    # Run inference
+    output = session.run([output_name], {input_name: input_data})[0]
+
+    max_index = numpy.argmax(output[0])
+    max_class = classes[max_index]
+    max_score = output[0][max_index]
+
+    return f"class: {max_class}, with score: {max_score}"
